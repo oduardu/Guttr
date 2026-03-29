@@ -8,19 +8,53 @@ export function clearRuleWarnings(): void {
   warnedRules.clear();
 }
 
+function isValidShape(value: unknown, index: number): value is GutterRule {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const obj = value as Record<string, unknown>;
+  const name = typeof obj['name'] === 'string' ? obj['name'] : `rule[${index}]`;
+  const ruleObj = obj['rule'];
+
+  if (
+    typeof obj['name'] !== 'string' ||
+    typeof obj['task'] !== 'string' ||
+    typeof obj['filePattern'] !== 'string' ||
+    !ruleObj ||
+    typeof ruleObj !== 'object' ||
+    typeof (ruleObj as Record<string, unknown>)['regex'] !== 'string'
+  ) {
+    const key = `shape:${name}`;
+    if (!warnedRules.has(key)) {
+      warnedRules.add(key);
+      vscode.window.showWarningMessage(
+        `Guttr: Skipping malformed rule "${name}". Required fields: name, task, filePattern, rule.regex.`
+      );
+    }
+    return false;
+  }
+
+  return true;
+}
+
 export function loadRules(): GutterRule[] {
   const config = vscode.workspace.getConfiguration();
-  const raw = config.get<GutterRule[]>('guttr.rules', []);
+  const raw = config.get<unknown[]>('guttr.rules', []);
 
-  return raw.filter((rule) => {
+  return raw.filter((item, index): item is GutterRule => {
+    if (!isValidShape(item, index)) {
+      return false;
+    }
+
     try {
-      new RegExp(rule.rule.regex);
+      new RegExp(item.rule.regex);
       return true;
     } catch {
-      if (!warnedRules.has(rule.name)) {
-        warnedRules.add(rule.name);
+      const key = `regex:${item.name}`;
+      if (!warnedRules.has(key)) {
+        warnedRules.add(key);
         vscode.window.showWarningMessage(
-          `Guttr: Invalid regex in rule "${rule.name}": ${rule.rule.regex}`
+          `Guttr: Invalid regex in rule "${item.name}": ${item.rule.regex}`
         );
       }
       return false;
