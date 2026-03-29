@@ -182,7 +182,7 @@ class UserTest extends TestCase        // ← ▶ clica para rodar toda a classe
 
 ## Instalação sem o Marketplace
 
-O Guttr é distribuído como um arquivo `.vsix`. Não precisa publicar no Marketplace — basta gerar o arquivo uma vez e compartilhar com o time.
+O Guttr é distribuído como um arquivo `.vsix`. Não precisa publicar no Marketplace — basta gerar o arquivo uma vez.
 
 ### 1. Gerar o `.vsix`
 
@@ -213,12 +213,6 @@ cursor --install-extension guttr-0.1.0.vsix
 2. Clique no `...` (menu de contexto) no canto superior direito
 3. Escolha **Install from VSIX...**
 4. Selecione o arquivo `.vsix`
-
-### 3. Distribuição interna
-
-Compartilhe o `.vsix` gerado diretamente (Slack, Drive, repositório interno, etc.). Cada pessoa do time instala o arquivo localmente — sem precisar de conta no Marketplace ou conexão com a internet.
-
-Para atualizar, basta gerar um novo `.vsix` e redistribuir. A versão instalada será substituída automaticamente ao rodar o comando de instalação novamente.
 
 ---
 
