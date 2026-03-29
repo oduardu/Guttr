@@ -6,8 +6,7 @@ export interface GutterRule {
     regex: string;
     paramGroup?: number;
   };
-  icon?: string;
-  iconColor?: string;
+  failPattern?: string;
 }
 
 export interface LineMatch {

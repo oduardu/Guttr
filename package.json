@@ -50,6 +50,10 @@
                   }
                 },
                 "required": ["regex"]
+              },
+              "failPattern": {
+                "type": "string",
+                "description": "Regex testada contra o output da task. Se bater, marca como falha independente do exit code. Ex: \"FAILURES!|ERRORS!\""
               }
             },
             "required": ["name", "task", "filePattern", "rule"]

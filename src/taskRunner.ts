@@ -38,7 +38,8 @@ export class TaskRunner {
   async run(
     taskLabel: string,
     ctx: TaskContext,
-    output: (text: string) => void
+    output: (text: string) => void,
+    failPattern?: string
   ): Promise<void> {
     this.lastParam = ctx.param;
 
@@ -62,20 +63,27 @@ export class TaskRunner {
     const commandLine = getCommandLine(task.execution);
     const cwd = this.resolveWorkspaceCwd(task);
     const env = { ...process.env, ...buildEnv(ctx) } as NodeJS.ProcessEnv;
+    const failRegex = failPattern ? new RegExp(failPattern) : undefined;
+    let outputMatchedFail = false;
 
     return new Promise((resolve, reject) => {
       const proc = cp.spawn(commandLine, [], { shell: true, env, cwd });
 
-      proc.stdout.on('data', (data: Buffer) => {
-        output(data.toString().replace(/\r?\n/g, '\r\n'));
-      });
+      const handleData = (data: Buffer) => {
+        const text = data.toString();
+        if (failRegex && failRegex.test(text)) {
+          outputMatchedFail = true;
+        }
+        output(text.replace(/\r?\n/g, '\r\n'));
+      };
 
-      proc.stderr.on('data', (data: Buffer) => {
-        output(data.toString().replace(/\r?\n/g, '\r\n'));
-      });
+      proc.stdout.on('data', handleData);
+      proc.stderr.on('data', handleData);
 
       proc.on('close', (code) => {
-        if (code === 0 || code === null) {
+        if (outputMatchedFail) {
+          reject(new Error('Output matched failPattern'));
+        } else if (code === 0 || code === null) {
           resolve();
         } else {
           reject(new Error(`Exited with code ${code}`));
