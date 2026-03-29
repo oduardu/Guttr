@@ -59,16 +59,19 @@ export class TaskRunner {
     param: string
   ): vscode.ShellExecution {
     const placeholder = /\$\{param\}/g;
+    // Use a replacer function so special `$` sequences in `param`
+    // (e.g. `$&`, `$1`) are treated as literals, not replacement patterns.
+    const replacer = () => param;
 
     if (execution.commandLine !== undefined) {
-      const newLine = execution.commandLine.replace(placeholder, param);
+      const newLine = execution.commandLine.replace(placeholder, replacer);
       return new vscode.ShellExecution(newLine, execution.options);
     }
 
     if (execution.command !== undefined) {
       const rawCmd = execution.command;
       const cmdStr = typeof rawCmd === 'string' ? rawCmd : rawCmd.value;
-      const newCmdStr = cmdStr.replace(placeholder, param);
+      const newCmdStr = cmdStr.replace(placeholder, replacer);
       const newCmd =
         typeof rawCmd === 'string'
           ? newCmdStr
@@ -76,7 +79,7 @@ export class TaskRunner {
 
       const newArgs = (execution.args ?? []).map((arg) => {
         const raw = typeof arg === 'string' ? arg : arg.value;
-        const replaced = raw.replace(placeholder, param);
+        const replaced = raw.replace(placeholder, replacer);
         return typeof arg === 'string'
           ? replaced
           : { value: replaced, quoting: arg.quoting };
