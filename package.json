@@ -57,7 +57,7 @@
               },
               "failMessage": {
                 "type": "string",
-                "description": "Mensagem exibida quando o failPattern bater. Padrão: \"Output matched failPattern\"."
+                "description": "Mensagem exibida quando o failPattern bater. Use $OUTPUT para incluir o output completo da task. Padrão: \"Output matched failPattern\"."
               }
             },
             "required": ["name", "task", "filePattern", "rule"]

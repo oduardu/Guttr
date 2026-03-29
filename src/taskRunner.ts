@@ -66,12 +66,14 @@ export class TaskRunner {
     const env = { ...process.env, ...buildEnv(ctx) } as NodeJS.ProcessEnv;
     const failRegex = failPattern ? new RegExp(failPattern) : undefined;
     let outputMatchedFail = false;
+    let collectedOutput = '';
 
     return new Promise((resolve, reject) => {
       const proc = cp.spawn(commandLine, [], { shell: true, env, cwd });
 
       const handleData = (data: Buffer) => {
         const text = data.toString();
+        collectedOutput += text;
         if (failRegex && failRegex.test(text)) {
           outputMatchedFail = true;
         }
@@ -83,7 +85,9 @@ export class TaskRunner {
 
       proc.on('close', (code) => {
         if (outputMatchedFail) {
-          reject(new Error(failMessage ?? 'Output matched failPattern'));
+          const message = (failMessage ?? 'Output matched failPattern')
+            .replace('$OUTPUT', () => collectedOutput.trim());
+          reject(new Error(message));
         } else if (code === 0 || code === null) {
           resolve();
         } else {
