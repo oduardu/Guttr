@@ -1,9 +1,31 @@
 import * as vscode from 'vscode';
 import { GutterRule, LineMatch } from './types';
 
+// Tracks rules already warned about to avoid repeating the same message
+const warnedRules = new Set<string>();
+
+export function clearRuleWarnings(): void {
+  warnedRules.clear();
+}
+
 export function loadRules(): GutterRule[] {
   const config = vscode.workspace.getConfiguration();
-  return config.get<GutterRule[]>('gutterRunner.rules', []);
+  const raw = config.get<GutterRule[]>('guttr.rules', []);
+
+  return raw.filter((rule) => {
+    try {
+      new RegExp(rule.rule.regex);
+      return true;
+    } catch {
+      if (!warnedRules.has(rule.name)) {
+        warnedRules.add(rule.name);
+        vscode.window.showWarningMessage(
+          `Guttr: Invalid regex in rule "${rule.name}": ${rule.rule.regex}`
+        );
+      }
+      return false;
+    }
+  });
 }
 
 /**
@@ -71,16 +93,7 @@ export function matchDocument(
       continue;
     }
 
-    let regex: RegExp;
-    try {
-      regex = new RegExp(rule.rule.regex);
-    } catch {
-      vscode.window.showWarningMessage(
-        `Guttr: Invalid regex in rule "${rule.name}": ${rule.rule.regex}`
-      );
-      continue;
-    }
-
+    const regex = new RegExp(rule.rule.regex);
     const paramGroup = rule.rule.paramGroup ?? 1;
 
     for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex++) {

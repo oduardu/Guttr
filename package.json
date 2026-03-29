@@ -17,7 +17,7 @@
     "configuration": {
       "title": "Guttr",
       "properties": {
-        "gutterRunner.rules": {
+        "guttr.rules": {
           "type": "array",
           "default": [],
           "description": "Array of rules to show gutter icons and run VS Code tasks.",
@@ -68,7 +68,7 @@
     },
     "commands": [
       {
-        "command": "gutterRunner.getLastParam",
+        "command": "guttr.getLastParam",
         "title": "Guttr: Get Last Captured Param"
       }
     ]
