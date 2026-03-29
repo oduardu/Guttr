@@ -10,6 +10,13 @@ export function clearRuleWarnings(): void {
 
 function isValidShape(value: unknown, index: number): value is GutterRule {
   if (!value || typeof value !== 'object') {
+    const key = `nonobject:${index}`;
+    if (!warnedRules.has(key)) {
+      warnedRules.add(key);
+      vscode.window.showWarningMessage(
+        `Guttr: Skipping non-object rule at index ${index}.`
+      );
+    }
     return false;
   }
   const obj = value as Record<string, unknown>;
