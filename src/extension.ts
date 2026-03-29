@@ -5,10 +5,10 @@ import { loadRules, matchDocument } from './ruleEngine';
 
 const DEBOUNCE_MS = 300;
 
-function debounce<T extends (...args: Parameters<T>) => void>(
-  fn: T,
+function debounce<TArgs extends unknown[]>(
+  fn: (...args: TArgs) => void,
   delay: number
-): (...args: Parameters<T>) => void {
+): (...args: TArgs) => void {
   let timer: ReturnType<typeof setTimeout> | undefined;
   return (...args) => {
     if (timer !== undefined) {
@@ -61,7 +61,16 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  // Detect gutter clicks: mouse selection landing at column 0 on a decorated line
+  // Prune activeMatches when a document is closed to avoid memory leaks
+  context.subscriptions.push(
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      manager.pruneFile(document.uri.toString());
+    })
+  );
+
+  // Detect gutter clicks: mouse selection landing at column 0 on a decorated line.
+  // Known MVP limitation: also fires when the user clicks at the very start of a
+  // decorated line in the text area (not in the gutter column).
   context.subscriptions.push(
     vscode.window.onDidChangeTextEditorSelection((e) => {
       if (e.kind !== vscode.TextEditorSelectionChangeKind.Mouse) {
@@ -80,7 +89,11 @@ export function activate(context: vscode.ExtensionContext): void {
       const match = manager.getMatchAtLine(fileUri, selection.start.line);
 
       if (match) {
-        runner.run(match.rule.task, match.param);
+        void runner.run(match.rule.task, match.param).catch((err: unknown) => {
+          vscode.window.showErrorMessage(
+            `Guttr: Failed to run task "${match.rule.task}": ${String(err)}`
+          );
+        });
       }
     })
   );
@@ -89,6 +102,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('guttr.rules')) {
+        manager.invalidateDecorationCache();
         for (const editor of vscode.window.visibleTextEditors) {
           scanEditor(editor, manager);
         }
