@@ -1,71 +1,195 @@
-# guttr README
+# Guttr
 
-This is the README for your extension "guttr". After writing up a brief description, we recommend including the following sections.
-
-## Features
-
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+Adiciona ícones clicáveis no gutter do editor que executam tasks do VS Code. Cada ícone é gerado por uma regra configurável — uma regex que faz match em linhas do arquivo e captura um parâmetro. O output aparece no painel **Test Results**, sem abrir um terminal novo a cada execução.
 
 ---
 
-## Following extension guidelines
+## Como funciona
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+1. Você define regras em `guttr.rules` no `settings.json`
+2. Para cada linha que faz match com a regex, um ícone ▶ aparece no gutter
+3. Ao clicar, a task configurada é executada com variáveis de ambiente injetadas automaticamente
+4. O output aparece no painel **Test Results** (ícone de tubo de ensaio na barra lateral)
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+Os ícones refletem o resultado da execução:
 
-## Working with Markdown
+| Estado | Ícone |
+|--------|-------|
+| Aguardando | ▶ cinza |
+| Rodando | ⟳ animado |
+| Saiu com código 0 | ✓ verde |
+| Saiu com código ≠ 0 | ✗ vermelho |
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+---
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+## Configuração
 
-## For more information
+### `settings.json`
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+```jsonc
+{
+  "guttr.rules": [
+    {
+      "name": "PHPUnit - Método",        // Nome exibido no Test Explorer
+      "task": "phpunit-method",           // Label da task no tasks.json
+      "filePattern": "**/*Test.php",      // Glob: em quais arquivos aplicar
+      "rule": {
+        "regex": "public\\s+function\\s+(test\\w+)",  // Regex com grupo de captura
+        "paramGroup": 1                               // Qual grupo usar como $GUTTR_PARAM (padrão: 1)
+      }
+    }
+  ]
+}
+```
 
-**Enjoy!**
+#### Campos da regra
+
+| Campo | Obrigatório | Descrição |
+|-------|:-----------:|-----------|
+| `name` | Sim | Nome da regra — aparece no Test Explorer |
+| `task` | Sim | Label exato da task no `tasks.json` |
+| `filePattern` | Sim | Glob para filtrar arquivos (`**/*Test.php`, `src/**/*.js`) |
+| `rule.regex` | Sim | Regex JavaScript. Use grupos de captura `(...)` para extrair o parâmetro |
+| `rule.paramGroup` | Não | Índice do grupo de captura para `$GUTTR_PARAM` (padrão: `1`) |
+
+#### Glob patterns suportados
+
+| Pattern | Significado |
+|---------|-------------|
+| `**/*Test.php` | Qualquer arquivo terminando em `Test.php` em qualquer profundidade |
+| `src/**/*.ts` | Arquivos `.ts` dentro de `src/` |
+| `*.php` | Arquivos `.php` na raiz do workspace |
+| `**/*.{js,ts}` | Arquivos `.js` ou `.ts` em qualquer lugar |
+
+---
+
+### `tasks.json`
+
+A task é uma shell task normal do VS Code. As variáveis `$GUTTR_*` são injetadas como variáveis de ambiente antes da execução — use-as livremente no comando.
+
+```jsonc
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "phpunit-method",
+      "type": "shell",
+      "command": "php artisan test --filter=$GUTTR_PARAM",
+      "problemMatcher": []
+    },
+    {
+      "label": "phpunit-class",
+      "type": "shell",
+      "command": "php artisan test $GUTTR_RELATIVE_FILE",
+      "problemMatcher": []
+    }
+  ]
+}
+```
+
+---
+
+## Variáveis de ambiente (`$GUTTR_*`)
+
+Todas as variáveis abaixo são injetadas automaticamente no ambiente da task ao executar:
+
+| Variável | Descrição | Exemplo |
+|----------|-----------|---------|
+| `$GUTTR_PARAM` | Valor capturado pelo grupo da regex | `testUserCanLogin` |
+| `$GUTTR_FILE` | Caminho absoluto do arquivo | `/project/tests/UserTest.php` |
+| `$GUTTR_FILENAME` | Nome do arquivo com extensão | `UserTest.php` |
+| `$GUTTR_FILENAME_NO_EXT` | Nome do arquivo sem extensão | `UserTest` |
+| `$GUTTR_DIR` | Diretório do arquivo | `/project/tests` |
+| `$GUTTR_RELATIVE_FILE` | Caminho relativo à raiz do workspace | `tests/UserTest.php` |
+| `$GUTTR_LINE` | Número da linha (base 1) | `5` |
+| `$GUTTR_RULE` | Nome da regra que fez match | `PHPUnit - Método` |
+
+---
+
+## Exemplo completo — PHPUnit
+
+### `settings.json`
+
+```jsonc
+{
+  "guttr.rules": [
+    {
+      "name": "PHPUnit - Método",
+      "task": "phpunit-method",
+      "filePattern": "**/*Test.php",
+      "rule": {
+        "regex": "public\\s+function\\s+(test\\w+)",
+        "paramGroup": 1
+      }
+    },
+    {
+      "name": "PHPUnit - Classe",
+      "task": "phpunit-class",
+      "filePattern": "**/*Test.php",
+      "rule": {
+        "regex": "class\\s+(\\w+Test)\\b",
+        "paramGroup": 1
+      }
+    }
+  ]
+}
+```
+
+### `tasks.json`
+
+```jsonc
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "phpunit-method",
+      "type": "shell",
+      "command": "php artisan test --filter=$GUTTR_PARAM",
+      "problemMatcher": []
+    },
+    {
+      "label": "phpunit-class",
+      "type": "shell",
+      "command": "php artisan test $GUTTR_RELATIVE_FILE",
+      "problemMatcher": []
+    }
+  ]
+}
+```
+
+### Arquivo `UserTest.php`
+
+```php
+<?php
+
+class UserTest extends TestCase        // ← ▶ clica para rodar toda a classe
+{
+    public function testUserCanLogin() // ← ▶ clica para rodar só este método
+    {
+    }
+
+    public function testUserCanRegister() // ← ▶
+    {
+    }
+
+    public function helperMethod()    // sem ícone — não faz match
+    {
+    }
+}
+```
+
+---
+
+## Instalação local (`.vsix`)
+
+```bash
+npm install
+npm run package        # gera guttr-0.1.0.vsix
+code --install-extension guttr-0.1.0.vsix
+```
+
+---
+
+## Requisitos
+
+- VS Code 1.85+

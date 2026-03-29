@@ -50,15 +50,6 @@
                   }
                 },
                 "required": ["regex"]
-              },
-              "icon": {
-                "type": "string",
-                "default": "play",
-                "description": "Codicon ID for the gutter icon (e.g. play, testing-run-icon, debug-start)"
-              },
-              "iconColor": {
-                "type": "string",
-                "description": "Icon color: hex (#4EC94E), CSS color, or VS Code theme color (e.g. terminal.ansiGreen)"
               }
             },
             "required": ["name", "task", "filePattern", "rule"]

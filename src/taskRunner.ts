@@ -1,18 +1,46 @@
+import * as cp from 'child_process';
 import * as vscode from 'vscode';
+import { TaskContext } from './types';
+
+function buildEnv(ctx: TaskContext): Record<string, string> {
+  return {
+    GUTTR_PARAM: ctx.param,
+    GUTTR_FILE: ctx.filePath,
+    GUTTR_FILENAME: ctx.fileName,
+    GUTTR_FILENAME_NO_EXT: ctx.fileNameNoExt,
+    GUTTR_DIR: ctx.fileDir,
+    GUTTR_RELATIVE_FILE: ctx.relativeFilePath,
+    GUTTR_LINE: String(ctx.lineNumber),
+    GUTTR_RULE: ctx.ruleName,
+  };
+}
+
+function getCommandLine(execution: vscode.ShellExecution): string {
+  if (execution.commandLine !== undefined) {
+    return execution.commandLine;
+  }
+  const cmd = typeof execution.command === 'string'
+    ? execution.command
+    : execution.command?.value ?? '';
+  const args = (execution.args ?? []).map((a) =>
+    typeof a === 'string' ? a : a.value
+  );
+  return [cmd, ...args].join(' ');
+}
 
 export class TaskRunner {
   private lastParam = '';
 
-  /**
-   * Returns the last captured parameter. Exposed as the
-   * gutterRunner.getLastParam command so tasks.json inputs can use it.
-   */
   getLastParam(): string {
     return this.lastParam;
   }
 
-  async run(taskLabel: string, param: string): Promise<void> {
-    this.lastParam = param;
+  async run(
+    taskLabel: string,
+    ctx: TaskContext,
+    output: (text: string) => void
+  ): Promise<void> {
+    this.lastParam = ctx.param;
 
     const allTasks = await vscode.tasks.fetchTasks();
     const task = allTasks.find((t) => t.name === taskLabel);
@@ -24,70 +52,45 @@ export class TaskRunner {
       return;
     }
 
-    const patched = this.patchTaskParam(task, param);
-    await vscode.tasks.executeTask(patched);
-  }
-
-  private patchTaskParam(task: vscode.Task, param: string): vscode.Task {
-    const execution = task.execution;
-
-    if (!(execution instanceof vscode.ShellExecution)) {
-      // Non-shell tasks: execute as-is (param already stored in lastParam
-      // for tasks using the gutterRunner.getLastParam input command)
-      return task;
+    if (!(task.execution instanceof vscode.ShellExecution)) {
+      vscode.window.showErrorMessage(
+        `Guttr: Task "${taskLabel}" must be a shell task.`
+      );
+      return;
     }
 
-    const newExecution = this.substituteParam(execution, param);
+    const commandLine = getCommandLine(task.execution);
+    const cwd = this.resolveWorkspaceCwd(task);
+    const env = { ...process.env, ...buildEnv(ctx) } as NodeJS.ProcessEnv;
 
-    const patched = new vscode.Task(
-      task.definition,
-      task.scope ?? vscode.TaskScope.Workspace,
-      task.name,
-      task.source,
-      newExecution,
-      task.problemMatchers
-    );
-    patched.presentationOptions = task.presentationOptions;
-    patched.group = task.group;
-    patched.runOptions = task.runOptions;
+    return new Promise((resolve, reject) => {
+      const proc = cp.spawn(commandLine, [], { shell: true, env, cwd });
 
-    return patched;
-  }
-
-  private substituteParam(
-    execution: vscode.ShellExecution,
-    param: string
-  ): vscode.ShellExecution {
-    const placeholder = /\$\{param\}/g;
-    // Use a replacer function so special `$` sequences in `param`
-    // (e.g. `$&`, `$1`) are treated as literals, not replacement patterns.
-    const replacer = () => param;
-
-    if (execution.commandLine !== undefined) {
-      const newLine = execution.commandLine.replace(placeholder, replacer);
-      return new vscode.ShellExecution(newLine, execution.options);
-    }
-
-    if (execution.command !== undefined) {
-      const rawCmd = execution.command;
-      const cmdStr = typeof rawCmd === 'string' ? rawCmd : rawCmd.value;
-      const newCmdStr = cmdStr.replace(placeholder, replacer);
-      const newCmd =
-        typeof rawCmd === 'string'
-          ? newCmdStr
-          : { value: newCmdStr, quoting: rawCmd.quoting };
-
-      const newArgs = (execution.args ?? []).map((arg) => {
-        const raw = typeof arg === 'string' ? arg : arg.value;
-        const replaced = raw.replace(placeholder, replacer);
-        return typeof arg === 'string'
-          ? replaced
-          : { value: replaced, quoting: arg.quoting };
+      proc.stdout.on('data', (data: Buffer) => {
+        output(data.toString().replace(/\r?\n/g, '\r\n'));
       });
 
-      return new vscode.ShellExecution(newCmd, newArgs, execution.options);
-    }
+      proc.stderr.on('data', (data: Buffer) => {
+        output(data.toString().replace(/\r?\n/g, '\r\n'));
+      });
 
-    return execution;
+      proc.on('close', (code) => {
+        if (code === 0 || code === null) {
+          resolve();
+        } else {
+          reject(new Error(`Exited with code ${code}`));
+        }
+      });
+
+      proc.on('error', reject);
+    });
+  }
+
+  private resolveWorkspaceCwd(task: vscode.Task): string | undefined {
+    const scope = task.scope;
+    if (scope && typeof scope !== 'number') {
+      return (scope as vscode.WorkspaceFolder).uri.fsPath;
+    }
+    return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   }
 }
