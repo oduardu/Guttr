@@ -88,7 +88,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Re-scan all visible editors when configuration changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('gutterRunner.rules')) {
+      if (e.affectsConfiguration('guttr.rules')) {
         for (const editor of vscode.window.visibleTextEditors) {
           scanEditor(editor, manager);
         }
@@ -98,7 +98,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Expose last captured param for tasks.json inputs integration
   context.subscriptions.push(
-    vscode.commands.registerCommand('gutterRunner.getLastParam', () => {
+    vscode.commands.registerCommand('guttr.getLastParam', () => {
       return runner.getLastParam();
     })
   );
