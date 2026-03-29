@@ -1,21 +1,75 @@
 {
   "name": "guttr",
   "displayName": "Guttr",
-  "description": "Customize your editor gutter with icons defined by your own rules.",
-  "version": "0.0.1",
+  "description": "Gutter icons that run VS Code tasks with regex-captured parameters.",
+  "version": "0.1.0",
   "engines": {
-    "vscode": "^1.110.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Guttr",
+      "properties": {
+        "guttr.rules": {
+          "type": "array",
+          "default": [],
+          "description": "Array of rules to show gutter icons and run VS Code tasks.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Descriptive rule name (shown in tooltips)"
+              },
+              "task": {
+                "type": "string",
+                "description": "Label of the task in tasks.json to execute"
+              },
+              "filePattern": {
+                "type": "string",
+                "description": "Glob pattern for files where this rule applies (e.g. **/*Test.php)"
+              },
+              "rule": {
+                "type": "object",
+                "properties": {
+                  "regex": {
+                    "type": "string",
+                    "description": "Regex to match lines. Use a capture group for the parameter."
+                  },
+                  "paramGroup": {
+                    "type": "number",
+                    "default": 1,
+                    "description": "Capture group index to use as task parameter (default: 1)"
+                  }
+                },
+                "required": ["regex"]
+              },
+              "icon": {
+                "type": "string",
+                "default": "play",
+                "description": "Codicon ID for the gutter icon (e.g. play, testing-run-icon, debug-start)"
+              },
+              "iconColor": {
+                "type": "string",
+                "description": "Icon color: hex (#4EC94E), CSS color, or VS Code theme color (e.g. terminal.ansiGreen)"
+              }
+            },
+            "required": ["name", "task", "filePattern", "rule"]
+          }
+        }
+      }
+    },
     "commands": [
       {
-        "command": "guttr.helloWorld",
-        "title": "Hello World"
+        "command": "guttr.getLastParam",
+        "title": "Guttr: Get Last Captured Param"
       }
     ]
   },
@@ -34,7 +88,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.110.0",
+    "@types/vscode": "^1.85.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "typescript-eslint": "^8.56.1",
