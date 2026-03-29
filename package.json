@@ -54,6 +54,10 @@
               "failPattern": {
                 "type": "string",
                 "description": "Regex testada contra o output da task. Se bater, marca como falha independente do exit code. Ex: \"FAILURES!|ERRORS!\""
+              },
+              "failMessage": {
+                "type": "string",
+                "description": "Mensagem exibida quando o failPattern bater. Padrão: \"Output matched failPattern\"."
               }
             },
             "required": ["name", "task", "filePattern", "rule"]

@@ -39,7 +39,8 @@ export class TaskRunner {
     taskLabel: string,
     ctx: TaskContext,
     output: (text: string) => void,
-    failPattern?: string
+    failPattern?: string,
+    failMessage?: string
   ): Promise<void> {
     this.lastParam = ctx.param;
 
@@ -82,7 +83,7 @@ export class TaskRunner {
 
       proc.on('close', (code) => {
         if (outputMatchedFail) {
-          reject(new Error('Output matched failPattern'));
+          reject(new Error(failMessage ?? 'Output matched failPattern'));
         } else if (code === 0 || code === null) {
           resolve();
         } else {

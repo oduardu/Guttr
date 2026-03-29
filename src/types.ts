@@ -7,6 +7,7 @@ export interface GutterRule {
     paramGroup?: number;
   };
   failPattern?: string;
+  failMessage?: string;
 }
 
 export interface LineMatch {

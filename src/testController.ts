@@ -105,7 +105,7 @@ export class GuttrTestController {
       run.started(item);
 
       await this.runner
-        .run(data.rule.task, data.context, (text) => run.appendOutput(text, undefined, item), data.rule.failPattern)
+        .run(data.rule.task, data.context, (text) => run.appendOutput(text, undefined, item), data.rule.failPattern, data.rule.failMessage)
         .then(
           () => run.passed(item),
           (err: unknown) => run.failed(item, new vscode.TestMessage(String(err)))
