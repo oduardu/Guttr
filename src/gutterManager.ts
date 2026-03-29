@@ -39,13 +39,23 @@ const ICON_PATHS: Record<string, string> = {
 const DEFAULT_ICON_PATH = ICON_PATHS['play'];
 const DEFAULT_COLOR = '#4EC94E';
 
+// Allowlist: accept only hex colors, rgb(...), hsl(...), or known theme IDs.
+// Anything else falls back to the default to prevent SVG attribute injection.
 function resolveColor(iconColor?: string): string {
   if (!iconColor) {
     return DEFAULT_COLOR;
   }
-  if (iconColor.startsWith('#') || iconColor.startsWith('rgb') || iconColor.startsWith('hsl')) {
+
+  if (/^#[0-9a-fA-F]{3,8}$/.test(iconColor)) {
     return iconColor;
   }
+  if (/^rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)$/.test(iconColor)) {
+    return iconColor;
+  }
+  if (/^hsl\(\s*\d+\s*,\s*[\d.]+%\s*,\s*[\d.]+%\s*\)$/.test(iconColor)) {
+    return iconColor;
+  }
+
   return THEME_COLOR_MAP[iconColor] ?? DEFAULT_COLOR;
 }
 
@@ -68,11 +78,23 @@ interface RuleDecoration {
 }
 
 export class GutterManager {
-  // decoration type per rule (keyed by rule name + index for uniqueness)
+  // decoration type per rule (keyed by rule index + name for uniqueness)
   private decorationTypes = new Map<string, RuleDecoration>();
 
   // active matches per file URI string
   private activeMatches = new Map<string, LineMatch[]>();
+
+  /**
+   * Disposes all cached decoration types, forcing recreation on the next
+   * updateDecorations call. Call this when rules change at runtime so that
+   * updated icons/colors take effect.
+   */
+  invalidateDecorationCache(): void {
+    for (const { decorationType } of this.decorationTypes.values()) {
+      decorationType.dispose();
+    }
+    this.decorationTypes.clear();
+  }
 
   getOrCreateDecoration(rule: GutterRule, ruleIndex: number): vscode.TextEditorDecorationType {
     const key = `${ruleIndex}:${rule.name}`;
@@ -126,6 +148,16 @@ export class GutterManager {
     this.activeMatches.delete(editor.document.uri.toString());
   }
 
+  pruneFile(fileUri: string): void {
+    this.activeMatches.delete(fileUri);
+  }
+
+  /**
+   * Returns the first rule match at the given line. When multiple rules match
+   * the same line, the one with the lowest ruleIndex (first in configuration)
+   * is used for the click action — VS Code renders each rule's gutter icon
+   * independently, but the click handler resolves to a single action.
+   */
   getMatchAtLine(fileUri: string, line: number): LineMatch | undefined {
     const matches = this.activeMatches.get(fileUri);
     if (!matches) {
